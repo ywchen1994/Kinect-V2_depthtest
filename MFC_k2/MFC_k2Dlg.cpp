@@ -6,14 +6,22 @@
 #include "MFC_k2.h"
 #include "MFC_k2Dlg.h"
 #include "afxdialogex.h"
+#include "math.h"
 IplImage* CMFC_k2Dlg::img_rgb = nullptr;
 IplImage* CMFC_k2Dlg::img_depth = nullptr;
+IplImage* CMFC_k2Dlg::img_edge = nullptr;
+bool CMFC_k2Dlg::saveImg = false;
+bool CMFC_k2Dlg::I2C = false;
+//char CMFC_k2Dlg::edgepath=
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 
 // 對 App About 使用 CAboutDlg 對話方塊
+
+int CMFC_k2Dlg::s_cannyMax = 50;
+int CMFC_k2Dlg::s_cannyMin = 50;
 
 class CAboutDlg : public CDialogEx
 {
@@ -52,6 +60,14 @@ END_MESSAGE_MAP()
 
 CMFC_k2Dlg::CMFC_k2Dlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_MFC_K2_DIALOG, pParent)
+	, m_cannyMin(0)
+	, m_cannyMax(0)
+	, m_ImgX(0)
+	, m_CamX(0)
+	, m_CamY(0)
+	, m_CamZ(0)
+	, m_ImgY(0)
+
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -61,6 +77,16 @@ void CMFC_k2Dlg::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_IMAGE_RGB, m_img_RGB);
 	DDX_Control(pDX, IDC_IMAGE_Depth, m_img_Depth);
+	DDX_Control(pDX, IDC_img_test, m_img_test);
+
+	DDX_Text(pDX, IDC_EDIT_cannyMin, m_cannyMin);
+	DDX_Text(pDX, IDC_EDIT_cannyMax, m_cannyMax);
+
+	DDX_Text(pDX, IDC_EDIT_ImgX, m_ImgX);
+	DDX_Text(pDX, IDC_EDIT_ImgY, m_ImgY);
+	DDX_Text(pDX, IDC_EDIT_CamX, m_CamX);
+	DDX_Text(pDX, IDC_EDIT_CamY, m_CamY);
+	DDX_Text(pDX, IDC_EDIT_CamZ, m_CamZ);
 }
 
 BEGIN_MESSAGE_MAP(CMFC_k2Dlg, CDialogEx)
@@ -70,6 +96,12 @@ BEGIN_MESSAGE_MAP(CMFC_k2Dlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_RGB, &CMFC_k2Dlg::OnBnClickedButtonRgb)
 	ON_BN_CLICKED(IDC_BUTTON_Depth, &CMFC_k2Dlg::OnBnClickedButtonDepth)
 	ON_BN_CLICKED(IDC_BUTTON3, &CMFC_k2Dlg::OnBnClickedButton3)
+	ON_BN_CLICKED(IDC_BUTTON_SaveImg, &CMFC_k2Dlg::OnBnClickedButtonSaveimg)
+	
+	ON_BN_CLICKED(IDC_BUTTON_canny, &CMFC_k2Dlg::OnBnClickedButtoncanny)
+	ON_BN_CLICKED(IDC_BUTTON_CloseKomect, &CMFC_k2Dlg::OnBnClickedButtonClosekomect)
+	ON_BN_CLICKED(IDC_BUTTON_Img2Cam, &CMFC_k2Dlg::OnBnClickedButtonImg2cam)
+	
 END_MESSAGE_MAP()
 
 
@@ -105,8 +137,11 @@ BOOL CMFC_k2Dlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 設定小圖示
 
 	// TODO: 在此加入額外的初始設定
+	
+	
 	m_img_RGB.SetWindowPos(NULL, 10, 10, 320, 240, SWP_SHOWWINDOW);;
 	m_img_Depth.SetWindowPos(NULL, 10 + 320, 10, 320, 240, SWP_SHOWWINDOW);
+	m_img_test.SetWindowPos(NULL, 10, 10+240, 320, 240, SWP_SHOWWINDOW);;
 	return TRUE;  // 傳回 TRUE，除非您對控制項設定焦點
 }
 
@@ -195,21 +230,29 @@ void CMFC_k2Dlg::Thread_Image_RGB(LPVOID lParam)
 {
 	CMythreadParam * Thread_Info = (CMythreadParam *)lParam;
 	CMFC_k2Dlg * hWnd = (CMFC_k2Dlg *)CWnd::FromHandle((HWND)Thread_Info->hWnd);
-	IplImage *rgb_show = nullptr;
 	Kinect2Capture kinect;
+	Edge edgefind;
 	kinect.Open(1, 1, 1);
-
 
 	while (1)
 	{
+		
 		img_rgb = kinect.RGBAImage();
 		if (img_rgb != NULL) {
+	IplImage* ImgRGB3 = cvCreateImage(cvGetSize(img_rgb), img_rgb->depth,3);
+	cvCvtColor(img_rgb, ImgRGB3,CV_BGRA2BGR);
 			hWnd->ShowImage(img_rgb, hWnd->GetDlgItem(IDC_IMAGE_RGB), 4);
+			if (saveImg) {
+				cvSaveImage("E:\\rgb.jpg", img_rgb);
+				saveImg = false;
+			}
 			cvReleaseImage(&img_rgb);
+			cvReleaseImage(&ImgRGB3);
 		}
 	}
 
-}UINT CMFC_k2Dlg::MythreadFun(LPVOID LParam)
+}
+UINT CMFC_k2Dlg::MythreadFun(LPVOID LParam)
 {
 	CMythreadParam* para = (CMythreadParam*)LParam;
 	CMFC_k2Dlg* lpview = (CMFC_k2Dlg*)(para->m_lpPara);
@@ -222,7 +265,8 @@ void CMFC_k2Dlg::Thread_Image_RGB(LPVOID lParam)
 		break;
 	case 1:
 		lpview->Thread_Image_Depth(LParam);
-
+	case 2:
+		lpview->Thread_Image_test(LParam);
 	default:
 		break;
 	}
@@ -237,13 +281,24 @@ void CMFC_k2Dlg::Thread_Image_Depth(LPVOID lParam)
 	CMythreadParam * Thread_Info = (CMythreadParam *)lParam;
 	CMFC_k2Dlg * hWnd = (CMFC_k2Dlg *)CWnd::FromHandle((HWND)Thread_Info->hWnd);
 	Kinect2Capture kinect;
+	Edge edge;
+
 	kinect.Open(1, 1, 1);
 	while (1)
 	{
 		img_depth = kinect.DepthImage();
 		if (img_depth != NULL)
+		{
 			hWnd->ShowImage(img_depth, hWnd->GetDlgItem(IDC_IMAGE_Depth), 1);
+			if (saveImg) {
+				cvSaveImage("E:\\depthBG.jpg", img_depth);
+				saveImg = false;
+			}
+		}
+		
 		cvReleaseImage(&img_depth);
+	
+	
 	}
 
 }
@@ -259,6 +314,102 @@ void CMFC_k2Dlg::OnBnClickedButtonDepth()
 void CMFC_k2Dlg::OnBnClickedButton3()
 {
 	// TODO: 在此加入控制項告知處理常式程式碼
-	Kinect2Capture kinect;
-	
+	m_threadPara.m_case = 2;
+	m_threadPara.hWnd = m_hWnd;
+	m_lpThread = AfxBeginThread(&CMFC_k2Dlg::MythreadFun, (LPVOID)&m_threadPara);
 }
+void CMFC_k2Dlg::Thread_Image_test(LPVOID lParam)
+{
+	CMythreadParam * Thread_Info = (CMythreadParam *)lParam;
+	CMFC_k2Dlg * hWnd = (CMFC_k2Dlg *)CWnd::FromHandle((HWND)Thread_Info->hWnd);
+	Kinect2Capture kinect;
+	Edge edgefind;
+	kinect.Open(1, 1, 1);
+	while (1)
+	{
+		img_depth = kinect.DepthImage();
+		if (img_depth != NULL) {
+		  img_edge = cvCreateImage(cvGetSize(img_depth), img_depth->depth,1);
+		   edgefind.Canny(img_depth, img_edge,s_cannyMin, s_cannyMax);
+			hWnd->ShowImage(img_edge, hWnd->GetDlgItem(IDC_img_test), 1);
+			hWnd->ShowImage(img_depth, hWnd->GetDlgItem(IDC_IMAGE_Depth),1);
+			if (saveImg) {
+			
+				cvSaveImage("E:\\img_edge.jpg", img_edge);
+				saveImg = false;
+			}
+			if (I2C){
+				CString str;
+
+				hWnd->GetDlgItem(IDC_EDIT_ImgX)->GetWindowText(str);
+				int x1 = _ttoi(str);
+				hWnd->GetDlgItem(IDC_EDIT_ImgY)->GetWindowText(str);
+				int y1 = _ttoi(str);
+		     	kinect.Depth2CameraSpace(x1, y1);
+			
+
+					str.Format(_T("%.4f"), kinect.CameraX * 1000);
+					hWnd->GetDlgItem(IDC_EDIT_CamX)->SetWindowText(str);
+					str.Format(_T("%.4f"), kinect.CameraY * 1000);
+					hWnd->GetDlgItem(IDC_EDIT_CamY)->SetWindowText(str);
+					str.Format(_T("%.4f"), kinect.CameraZ * 1000);
+					hWnd->GetDlgItem(IDC_EDIT_CamZ)->SetWindowText(str);
+
+					float SCARACommamndX =150.797+296.4772- kinect.CameraY * 1000;//Cam.Y+SCA.X
+					str.Format(_T("%.4f"), SCARACommamndX);
+					hWnd->GetDlgItem(IDC_EDIT_SCARACommandX)->SetWindowText(str);
+
+					float SCARACommamndY = 211.496+352.1847 - kinect.CameraX * 1000;//Cam.Y+SCA.Y
+					str.Format(_T("%.4f"), SCARACommamndY);
+					hWnd->GetDlgItem(IDC_EDIT_SCARACommandY)->SetWindowText(str);
+
+					if (sqrt(pow(SCARACommamndX, 2) + pow(SCARACommamndY, 2)) > 550)
+					MessageBox(_T("手臂過短"));
+
+					float SCARACommamndZ = kinect.CameraZ * 1000 - 560;
+					if (SCARACommamndZ - 200 < 2 &&  SCARACommamndZ-200>0)
+						SCARACommamndZ = 200;
+					str.Format(_T("%.4f"), SCARACommamndZ);
+					hWnd->GetDlgItem(IDC_EDIT_SCARACommandZ)->SetWindowText(str);
+					I2C = false;
+					
+			}
+			cvReleaseImage(&img_depth);
+			cvReleaseImage(&img_edge);
+		}
+	}
+}
+
+void CMFC_k2Dlg::OnBnClickedButtonSaveimg()
+{
+	// TODO: 在此加入控制項告知處理常式程式碼
+	saveImg = true;
+}
+
+
+
+void CMFC_k2Dlg::OnBnClickedButtoncanny()
+{
+	UpdateData(true);
+	s_cannyMax = m_cannyMax;
+	s_cannyMin = m_cannyMin;
+
+}
+
+
+void CMFC_k2Dlg::OnBnClickedButtonClosekomect()
+{
+	// TODO: 在此加入控制項告知處理常式程式碼
+	Kinect2Capture kinect;
+	kinect.Close();
+}
+
+
+void CMFC_k2Dlg::OnBnClickedButtonImg2cam()
+{
+	// TODO: 在此加入控制項告知處理常式程式碼
+	I2C = true;
+}
+
+
+

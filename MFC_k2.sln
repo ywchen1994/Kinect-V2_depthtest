@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MFC_k2", "MFC_k2\MFC_k2.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Kinect2Capture", "Kinect2Capture\Kinect2Capture.vcxproj", "{F406BA08-8CE2-4AAA-9B77-AC716643092D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Edge", "Edge\Edge.vcxproj", "{89F1500A-94E2-435D-8E1A-34859F4A6CFF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -29,6 +31,14 @@ Global
 		{F406BA08-8CE2-4AAA-9B77-AC716643092D}.Release|x64.ActiveCfg = Release|Win32
 		{F406BA08-8CE2-4AAA-9B77-AC716643092D}.Release|x86.ActiveCfg = Release|Win32
 		{F406BA08-8CE2-4AAA-9B77-AC716643092D}.Release|x86.Build.0 = Release|Win32
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Debug|x64.ActiveCfg = Debug|x64
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Debug|x64.Build.0 = Debug|x64
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Debug|x86.ActiveCfg = Debug|Win32
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Debug|x86.Build.0 = Debug|Win32
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Release|x64.ActiveCfg = Release|x64
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Release|x64.Build.0 = Release|x64
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Release|x86.ActiveCfg = Release|Win32
+		{89F1500A-94E2-435D-8E1A-34859F4A6CFF}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

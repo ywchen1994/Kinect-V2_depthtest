@@ -11,6 +11,8 @@ public:
 	Kinect2Capture();
 	~Kinect2Capture();
 
+
+
 	//Open(RGBImage, DepthImage, InfraredImage)
 	void Open(bool rgb, bool depth, bool Infrared);
 
@@ -49,12 +51,22 @@ public:
 
 
 	/************FH***************/
-	void DepthMapping(UINT16*  pDepthPoints);
+	void Depth2CameraSpace( int Dpixelx, int Dpixely);
+	void Color2CameraSpace( int RGBpixelx, int RGBpixely);
 	ICoordinateMapper* pCoordinateMapper;
 	UINT uDepthPointNum;
 	UINT uColorPointNum;
 	UINT16*				pDepthPoints = new UINT16[uDepthPointNum];
 	DepthSpacePoint*	pPointArray = new DepthSpacePoint[uColorPointNum];
-	
+	CameraSpacePoint* pCSPoints = nullptr;//用來儲存彩色影像到攝影機座標的指標
+	CameraSpacePoint* pDSPoints = nullptr;//用來儲存深度影像到攝影機座標的指標
+	int iHeight;
+	int iWidth;
+
+static	float CameraX;
+static	float CameraY;
+static	float CameraZ;
+
+
 };
 

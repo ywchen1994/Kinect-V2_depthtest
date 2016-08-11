@@ -4,12 +4,14 @@
 #include "afxwin.h"
 #include"Kinect.h"
 #include"..//Kinect2Capture//Kinect2Capture.h"
+#include"..//Edge/Edge.h"
 #include "opencv.hpp"
 #include <iostream>
 #include <stdio.h>
 #include"Cvvimage.h"
 #pragma once
 #include "afxwin.h"
+#include "afxcmn.h"
 struct CMythreadParam
 {
 public:
@@ -60,4 +62,32 @@ public:
 	static IplImage* img_depth;
 	afx_msg void OnBnClickedButtonDepth();
 	afx_msg void OnBnClickedButton3();
+	void Thread_Image_test(LPVOID lParam);
+	CStatic m_img_test;
+	static IplImage *img_edge ;
+	afx_msg void OnBnClickedButtonSaveimg();
+	static bool saveImg;
+
+	
+	int m_cannyMin;
+	int m_cannyMax;
+	static int s_cannyMin;
+	static int s_cannyMax;
+	afx_msg void OnBnClickedButtoncanny();
+	static char edgepath[10];
+	static char depthpath[10];
+	int picnum = 0;
+	afx_msg void OnBnClickedButtonClosekomect();
+	afx_msg void OnBnClickedButtonImg2cam();
+
+
+	int m_ImgX;
+	int m_ImgY;
+	static bool I2C;
+	float m_CamX;
+	float m_CamY;
+	float m_CamZ;
+
+
+	afx_msg void OnBnClickedButton1();
 };

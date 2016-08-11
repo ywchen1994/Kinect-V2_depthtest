@@ -1,5 +1,10 @@
 #include "Kinect2Capture.h"
 
+float Kinect2Capture::CameraX = 0;
+float Kinect2Capture::CameraY = 0;
+float Kinect2Capture::CameraZ = 0;
+
+
 Kinect2Capture::Kinect2Capture()
 {
 	fColorOpened = false;
@@ -13,6 +18,11 @@ Kinect2Capture::Kinect2Capture()
 	colorSize = cvSize(1920, 1080);
 	depthSize = cvSize(512, 424);
 }
+
+
+
+
+
 
 Kinect2Capture::~Kinect2Capture()
 {
@@ -34,6 +44,12 @@ Kinect2Capture::~Kinect2Capture()
 	
 }
 
+
+
+
+
+
+
 void Kinect2Capture::Open(bool rgb, bool depth, bool Infrared)
 {
 	pSensor = nullptr;
@@ -48,15 +64,16 @@ void Kinect2Capture::Open(bool rgb, bool depth, bool Infrared)
 		if (pSensor->get_ColorFrameSource(&pColorFrameSource) != S_OK)MessageBox(L"Can't get color frame source");
 
 		//Get frame description
-		int iWidth = 0;
-		int iHeight = 0;
+		 iWidth = 0;
+		 iHeight = 0;
 		IFrameDescription* pFrameDescription = nullptr;
 		if (pColorFrameSource->get_FrameDescription(&pFrameDescription) == S_OK)
 		{
 			pFrameDescription->get_Width(&iWidth);
 			pFrameDescription->get_Height(&iHeight);
-			uColorPointNum = iWidth*iHeight;//FH
-			pPointArray = new DepthSpacePoint[uColorPointNum];
+			uColorPointNum = iWidth*iHeight;//1920*1080個彩色畫素點
+			
+			pCSPoints = new CameraSpacePoint[uColorPointNum];
 		}
 		pFrameDescription->Release();
 		pFrameDescription = nullptr;
@@ -110,8 +127,9 @@ void Kinect2Capture::Open(bool rgb, bool depth, bool Infrared)
 		{
 			pFrameDescription->get_Width(&iDepthWidth);
 			pFrameDescription->get_Height(&iDepthHeight);
-			uDepthPointNum= iDepthHeight*iDepthWidth;//FH
-			pDepthPoints = new UINT16[uDepthPointNum];//FH
+			uDepthPointNum= iDepthHeight*iDepthWidth;//512*424個深度畫素
+			pDepthPoints = new UINT16[uDepthPointNum];//建立一個動態矩陣用來存16bits深度影像值
+			pDSPoints = new CameraSpacePoint[uDepthPointNum];
 		}
 		
 
@@ -138,7 +156,7 @@ void Kinect2Capture::Open(bool rgb, bool depth, bool Infrared)
 		pFrameSource->Release();
 		pFrameSource = nullptr;
 
-		pCoordinateMapper = nullptr;/*FH*/
+		pCoordinateMapper = nullptr;/*初始化座標轉換指標*/
 		if (pSensor->get_CoordinateMapper(&pCoordinateMapper) != S_OK)MessageBox(L"get_CoordinateMapper failed");
 		fDepthOpened = true;
 	}
@@ -190,9 +208,11 @@ void Kinect2Capture::Close()
 	pSensor->Release();
 	pSensor = nullptr;
 
-	pCoordinateMapper->Release();/*FH*/
+	pCoordinateMapper->Release();/*釋放座標轉換指標*/
 	pCoordinateMapper = nullptr;
-	delete []pPointArray;
+	delete []pCSPoints;
+	delete []pDSPoints;
+	
 }
 
 void Kinect2Capture::setColorROISize(CvRect ROI, CvSize size)
@@ -247,10 +267,11 @@ IplImage * Kinect2Capture::DepthImage()
 		
 		pFrame->CopyFrameDataToArray(iDepthWidth * iDepthHeight, reinterpret_cast<UINT16*>(mDepthImg.data));
 		pDepthPoints = reinterpret_cast<UINT16*>(mDepthImg.data);
-		DepthMapping( pDepthPoints);
+	   
+	    
 		//convert from 16bit to 8bit
 
-		mDepthImg.convertTo(mDepthImg8bit, CV_8U, 255.0f / uDepthMax);
+		mDepthImg.convertTo(mDepthImg8bit, CV_8U, 255.0f / 900);
 		pImg = cvCloneImage(&(IplImage)mDepthImg8bit);
 
 		//cvSetImageROI(pImg, depthROI);
@@ -321,32 +342,31 @@ cv::Mat Kinect2Capture::DepthImageM()
 
 
 }
-void Kinect2Capture::DepthMapping(UINT16* pDepthPoints)
+void Kinect2Capture::Color2CameraSpace( int RGBpixelx, int RGBpixely)
 {
-	UINT16 distant_t = mDepthImg.at<UINT16>(278,188);
-	UINT16 distant_t2 = mDepthImg.at<UINT16>(266,188);
-	if (pCoordinateMapper->MapColorFrameToDepthSpace(uDepthPointNum, pDepthPoints, uColorPointNum, pPointArray) == S_OK)
-	{
 	
-		for (int y = 0; y < mColorImg.rows; ++y)
-		{
-			for (int x = 0; x < mColorImg.cols; ++x)
-			{
-				// ( x, y ) in color frame = rPoint in depth frame
-				const DepthSpacePoint& rPoint = pPointArray[y * mColorImg.cols + x];
+	if (pCoordinateMapper->MapColorFrameToCameraSpace(uDepthPointNum, pDepthPoints, uColorPointNum, pCSPoints) == S_OK)
+	{
 
-				// check if rPoint is in range
-				if (rPoint.X >= 0 && rPoint.X < iDepthWidth && rPoint.Y >= 0 && rPoint.Y < iDepthHeight)
-				{
-					// check 
-					UINT16 distant=mDepthImg.at<UINT16>(rPoint.Y, rPoint.X);
-
-				}
-			}
-		}
-
+		int idx = RGBpixelx + RGBpixely * iWidth;
+		const CameraSpacePoint& rPt = pCSPoints[idx];
+		 CameraX = rPt.X;
+		 CameraY = rPt.Y;
+		 CameraZ = rPt.Z;
+		
 		
 	}
-
 }
 
+void  Kinect2Capture::Depth2CameraSpace(int Dpixelx,int Dpixely)
+{
+	if (pCoordinateMapper->MapDepthFrameToCameraSpace(uDepthPointNum, pDepthPoints, uDepthPointNum, pDSPoints) == S_OK)//這裡的uDepthPointNum指的是攝影機座標的點數
+	{
+		int depIdx = Dpixelx + Dpixely * iDepthWidth;
+			
+		const CameraSpacePoint& rPt = pDSPoints[depIdx];
+		 CameraX = rPt.X;
+		 CameraY = rPt.Y;
+		 CameraZ = rPt.Z;	
+	}
+}

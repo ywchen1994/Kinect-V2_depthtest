@@ -89,5 +89,10 @@ public:
 	float m_CamZ;
 
 
-	afx_msg void OnBnClickedButton1();
+	afx_msg void OnBnClickedButtonCornerimg();
+	CStatic m_Img_Corner;
+	static bool edgeImgSuccessed;
+	afx_msg void OnBnClickedButtonImgselect();
+	bool imageSelect=false;
+	CStatic m_Img_Selected;
 };

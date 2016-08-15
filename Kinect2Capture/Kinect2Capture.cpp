@@ -271,7 +271,7 @@ IplImage * Kinect2Capture::DepthImage()
 	    
 		//convert from 16bit to 8bit
 
-		mDepthImg.convertTo(mDepthImg8bit, CV_8U, 255.0f / 900);
+		mDepthImg.convertTo(mDepthImg8bit, CV_8U, 255.0f / 800);
 		pImg = cvCloneImage(&(IplImage)mDepthImg8bit);
 
 		//cvSetImageROI(pImg, depthROI);
